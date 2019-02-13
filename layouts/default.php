@@ -7,7 +7,7 @@
     <link rel="shortcut icon" href="<?= path('/images/favicon.png'); ?>" />
     <link href="<?= path(['STYLES', 'default.css']); ?>" rel="stylesheet" />
     <script async src="https://googletagmanager.com/gtag/js?id=UA-133296967-1"></script>
-    <script>window.dataLayer = window.dataLayer || [];function gtag() { dataLayer.push(arguments); } gtag('js', new Date()); gtag('config', 'UA-133296967-1');</script>
+    <script>function gtag(){dataLayer.push(arguments);}window.dataLayer=window.dataLayer||[],gtag('js',new Date()),gtag('config','UA-133296967-1');</script>
   </head>
   <body>
     <section>
