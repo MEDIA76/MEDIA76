@@ -2,10 +2,10 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title><?= TITLE; ?></title>
     <link rel="shortcut icon" href="<?= path('/images/favicon.png'); ?>" />
-    <link href="<?= path(['STYLES', 'default.css']); ?>" rel="stylesheet" />
+    <?= STYLES; ?>
     <script async src="https://googletagmanager.com/gtag/js?id=UA-133296967-1"></script>
     <script>function gtag(){dataLayer.push(arguments);}window.dataLayer=window.dataLayer||[],gtag('js',new Date()),gtag('config','UA-133296967-1');</script>
   </head>
@@ -24,5 +24,6 @@
         <?php } ?>
       </footer>
     </section>
+    <?= SCRIPTS; ?>
   </body>
 </html>
