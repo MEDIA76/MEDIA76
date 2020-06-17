@@ -1,10 +1,9 @@
 <?php
 
 /**
- * Arcane 19.08.4 Microframework
- * Copyright 2017-2019 Joshua Britt
- * https://github.com/MEDIA76/arcane
- * Released under the MIT License
+ * Arcane 20.06.2 Microframework
+ * Copyright 2017-2020 Joshua Britt
+ * MIT License https://arcane.dev
 **/
 
 $define['DIR'] = [
@@ -20,7 +19,7 @@ $define['DIR'] = [
 $define['SET'] = [
   'ERRORS' => false,
   'INDEX' => 'index',
-  'LAYOUT' => 'default',
+  'LAYOUT' => null,
   'LOCALE' => null,
   'MINIFY' => true
 ];
@@ -37,7 +36,7 @@ function env($variable, $default = null) {
 
 function path($locator = null, $actual = false) {
   if(is_null($locator)) {
-    return str_replace('//', '/', '/' . implode(URI, '/') . '/');
+    return str_replace('//', '/', '/' . implode('/', URI) . '/');
   } else if(is_int($locator)) {
     return URI[$locator] ?? null;
   } else {
@@ -50,14 +49,14 @@ function path($locator = null, $actual = false) {
         $define = DIR[strtoupper($define)];
 
         if(isset($define) && !empty($define)) {
-          $prepend = "{$prepend}{$define}";
+          $locator = "{$define}/{$locator}";
         }
       }
     }
 
     if(!strpos($locator, '.')) {
       if(defined('LOCALE') && !$actual) {
-        $locator = LOCALE['URI'] . "/{$locator}";
+        $prepend = LOCALE['URI'];
       }
 
       if(!strpos($locator, '?')) {
@@ -82,33 +81,43 @@ function relay($define, $content) {
   define(strtoupper($define), $content);
 }
 
-function scribe($string, $return = true) {
+function scribe($string, $replace = []) {
+  if(is_array($string)) {
+    list($string, $return) = [$string[0], $string[1] ?? ''];
+  }
+
   if(defined('TRANSCRIPT')) {
     if(array_key_exists($string, TRANSCRIPT)) {
-      return TRANSCRIPT[$string];
+      list($string, $return) = [TRANSCRIPT[$string], null];
     }
   }
 
-  if(!is_bool($return)) {
-    $string = $return;
-  } else if(!$return) {
-    $string = null;
+  if(isset($return)) {
+    $string = $return !== '' ? $return : null;
+  } else if(!empty($replace)) {
+    $string = strtr($string, $replace);
   }
 
   return $string;
 }
 
 (function() use($define) {
-  define('__ROOT__', $_SERVER['DOCUMENT_ROOT']);
+  $app = [
+    'DIR' => dirname($_SERVER['SCRIPT_FILENAME']) . '/',
+    'ROOT' => rtrim($_SERVER['DOCUMENT_ROOT'], '/') . '/',
+    'QUERY' => urldecode($_SERVER['QUERY_STRING']),
+    'URI' => strtok($_SERVER['REQUEST_URI'], '?')
+  ];
 
-  define('APP', [
-    'DIR' => __DIR__,
-    'ROOT' => substr(__DIR__ . '/', strlen(realpath(__ROOT__))),
-    'URI' => $_SERVER['REQUEST_URI']
-  ]);
+  define('APP', array_merge($app, [
+    'DIR' => str_replace('\\', '/', $app['DIR']),
+    'ROOT' => substr($app['DIR'], strlen($app['ROOT']) - 1)
+  ]));
 
-  if(file_exists('.env')) {
-    foreach(array_filter(array_map('trim', file('.env'))) as $env) {
+  if(file_exists('.env') || file_exists('.env.example')) {
+    $envs = file_exists('.env') ? file('.env') : file('.env.example');
+
+    foreach(array_filter(array_map('trim', $envs)) as $env) {
       if(substr($env, 0, 1) != '#') {
         putenv(str_replace(' ', '', $env));
       }
@@ -177,7 +186,6 @@ function scribe($string, $return = true) {
     $minor = trim(preg_replace("/{$major}/", "", $tag, 1), '+-');
 
     if(ctype_alpha($minor)) {
-      $uri = "/{$major}/";
       $files = [
         dirname($locale, 2) . "/{$minor}.json",
         dirname($locale) . "/{$major}.json",
@@ -195,9 +203,10 @@ function scribe($string, $return = true) {
       }
 
       if(strpos($locale, '+')) {
+        $uri = $major;
         $minor = null;
       } else {
-        $uri = "{$uri}{$minor}/";
+        $uri = "{$major}/{$minor}";
       }
 
       $locales[$major][$minor] = [
@@ -205,7 +214,7 @@ function scribe($string, $return = true) {
         'COUNTRY' => $country,
         'FILES' => $files,
         'LANGUAGE' => $language,
-        'URI' => $uri,
+        'URI' => APP['ROOT'] . "{$uri}/",
       ];
     }
   }
@@ -214,12 +223,10 @@ function scribe($string, $return = true) {
 })();
 
 (function() {
-  $uri = explode('/', strtok(APP['URI'], '?'));
-  $uri = array_filter(array_diff($uri, explode('/', APP['ROOT'])));
+  $uri = rtrim(substr(APP['URI'], strlen(APP['ROOT'])), '/');
+  $uri = array_filter(array_merge([0], explode('/', $uri)));
 
   if(!empty($uri)) {
-    $uri = array_filter(array_merge([''], $uri));
-
     if(array_key_exists($uri[1], LOCALES)) {
       if(isset($uri[2]) && array_key_exists($uri[2], LOCALES[$uri[1]])) {
         $locale = LOCALES[$uri[1]][$uri[2]];
@@ -237,7 +244,7 @@ function scribe($string, $return = true) {
     }
 
     if(!empty($uri)) {
-      $uri = array_filter(array_merge([''], $uri));
+      $uri = array_filter(array_merge([0], $uri));
     }
   }
 
@@ -255,7 +262,7 @@ function scribe($string, $return = true) {
   } else if(!empty(SET['LOCALE'])) {
     $request = $_SERVER['HTTP_ACCEPT_LANGUAGE'];
     $default = str_replace('+', '-', SET['LOCALE']);
-    $uri = implode(URI, '/');
+    $uri = implode('/', URI);
 
     preg_match_all("/[a-z]{2}-[a-z]{2}/i", $request, $request);
 
@@ -266,7 +273,7 @@ function scribe($string, $return = true) {
         if(!empty($code)) {
           $code = array_values($locales)[key($code)];
 
-          header('Location: ' . path($code['URI'] . $uri));
+          header("Location: {$code['URI']}" . ltrim("{$uri}/", '/'));
 
           exit;
         }
@@ -316,12 +323,13 @@ function scribe($string, $return = true) {
     $directory = dirname($directory);
   } while($directory != '.');
 
-  define('PATHS', array_filter(array_merge([''], array_reverse($paths))));
+  define('PATHS', array_filter(array_merge([0], array_reverse($paths))));
 
   foreach(PATHS as $directory) {
     $directory = trim(DIR['HELPERS'], '/') . strstr($directory, '/');
+    $directory = rtrim(path($directory, true), '/');
 
-    if(is_dir($directory = path($directory, true))) {
+    if(is_dir($directory)) {
       foreach(glob("{$directory}/*.php") as $helper) {
         $helpers[basename($helper, '.php')] = include($helper);
       }
@@ -342,10 +350,14 @@ function scribe($string, $return = true) {
     });
   }
 
-  if(defined('ROUTE')) {
+  if(defined('ROUTES')) {
     $facade = array_diff_assoc(URI, $path);
 
-    foreach(ROUTE as $route) {
+    foreach(ROUTES as $route) {
+      if(!is_array($route)) {
+        $route = explode('/', trim($route, '/'));
+      }
+
       if(count($route) === count($facade)) {
         foreach(array_values($facade) as $increment => $segment) {
           if(is_array($route[$increment])) {
@@ -393,21 +405,22 @@ function scribe($string, $return = true) {
           'css' => 'STYLES'
         ] as $extension => $constant) {
           $assets = array_merge([
+            trim(DIR['LAYOUTS'], '/') . ".{$extension}",
             (defined('LAYOUT') ? LAYOUT : SET['LAYOUT']) . ".{$extension}"
           ], preg_filter("/$/", ".{$extension}", PATHS));
 
           relay($constant, function() use($assets, $constant) {
             $html = [
               'SCRIPTS' => '<script src="%s"></script>',
-              'STYLES' => '<link href="%s" rel="stylesheet" />'
+              'STYLES' => '<link rel="stylesheet" href="%s" />'
             ];
 
             foreach($assets as $asset) {
               $asset = path([$constant, $asset], true);
 
               if(file_exists($asset)) {
-                $asset = "{$asset}?m=" . filemtime($asset);
-                $asset = str_replace(__ROOT__, '', $asset);
+                $asset = "/{$asset}?m=" . filemtime($asset);
+                $asset = path(str_replace(APP['DIR'], '', $asset));
 
                 echo sprintf($html[$constant], $asset);
               }
